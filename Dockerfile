@@ -1,20 +1,27 @@
-FROM alpine:3.11.3
+FROM ubuntu:18.04
 LABEL maintainer="emilio@ociotec.com"
 
-RUN apk add --no-cache subversion apache2-webdav apache2-utils mod_dav_svn
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends subversion apache2 apache2-utils libapache2-mod-svn && \
+    rm -rf /var/lib/apt/lists/*
 
 EXPOSE 80
-
-STOPSIGNAL SIGWINCH
 
 VOLUME /etc/svn
 VOLUME /var/lib/svn
 WORKDIR /var/lib/svn
 
-COPY apache2/* /etc/apache2/conf.d/
-COPY svn/* /etc/svn/
+COPY apache2/custom.conf /etc/apache2/conf-available/
+RUN a2enconf custom.conf
+COPY apache2/svn.conf /etc/apache2/conf-available/
+RUN a2enconf svn.conf
 
-COPY docker-entrypoint.sh /usr/local/bin/
+COPY svn/authz /etc/svn/
+COPY svn/passwd /etc/svn/
+
+COPY docker-entrypoint.sh /usr/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]
 
-CMD ["/usr/sbin/httpd", "-D", "FOREGROUND"]
+CMD ["apachectl", "-D", "FOREGROUND"]
